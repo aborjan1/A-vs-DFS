@@ -15,27 +15,54 @@ RED=(220,70,70) # Izlaz
 
 
 
-def generate_maze(w,h):
-    maze=[[1]*w for _ in range(h)]
-    stack=[(1,1)]
-    maze[1][1]=0
+def generate_map(width, height, room_attempts=40, min_size=3, max_size=7):
+    grid = [[1]*width for _ in range(height)]
+    rooms = []
 
-    while stack:
-        x,y=stack[-1]
-        dirs=[(2,0),(-2,0),(0,2),(0,-2)]
-        random.shuffle(dirs)
-        carved=False
-        for dx,dy in dirs:
-            nx,ny=x+dx,y+dy
-            if 0<nx<w-1 and 0<ny<h-1 and maze[ny][nx]==1:
-                maze[y+dy//2][x+dx//2]=0
-                maze[ny][nx]=0
-                stack.append((nx,ny))
-                carved=True
-                break
-        if not carved:
-            stack.pop()
-    return maze
+    def carve_room(x, y, w, h):
+        for yy in range(y, y+h):
+            for xx in range(x, x+w):
+                grid[yy][xx] = 0
+
+    def carve_h_corridor(x1, x2, y):
+        for x in range(min(x1,x2), max(x1,x2)+1):
+            grid[y][x] = 0
+
+    def carve_v_corridor(y1, y2, x):
+        for y in range(min(y1,y2), max(y1,y2)+1):
+            grid[y][x] = 0
+
+    for _ in range(room_attempts):
+        w = random.randint(min_size, max_size)
+        h = random.randint(min_size, max_size)
+        x = random.randint(1, width - w - 2)
+        y = random.randint(1, height - h - 2)
+
+        failed = False
+        for yy in range(y-1, y+h+1):
+            for xx in range(x-1, x+w+1):
+                if grid[yy][xx] == 0:
+                    failed = True
+
+        if not failed:
+            carve_room(x,y,w,h)
+            center = (x+w//2, y+h//2)
+
+            if rooms:
+                prev = rooms[-1]
+                if random.random() < 0.5:
+                    carve_h_corridor(prev[0], center[0], prev[1])
+                    carve_v_corridor(prev[1], center[1], center[0])
+                else:
+                    carve_v_corridor(prev[1], center[1], prev[0])
+                    carve_h_corridor(prev[0], center[0], center[1])
+
+            rooms.append(center)
+
+    start = rooms[0]
+    goal = rooms[-1]
+    return grid, start, goal
+
 
 def dfs(maze,start,goal):
     stack=[(start,[start])]
@@ -130,15 +157,11 @@ pygame.init()
 screen=pygame.display.set_mode((WIDTH,HEIGHT))
 clock=pygame.time.Clock()
 
-maze=generate_maze(W,H)
-start = (1,1)
-goal = (W-2, H-2)
+maze, start, goal = generate_map(W, H)
 
 path_gen = dfs(maze, start, goal)
 visited = set()
 path = None
-
-
 
 dfs_gen=dfs(maze,start,goal)
 astar_gen=astar(maze,start,goal)
