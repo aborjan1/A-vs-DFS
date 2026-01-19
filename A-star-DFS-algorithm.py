@@ -36,16 +36,60 @@ def dfs(maze,start,goal):
     stack=[(start,[start])]
     visited=set()
     while stack:
+
         (x,y),path=stack.pop()
-        if (x,y)==goal:
-            return path
+
+        
         if (x,y) in visited:
             continue
+
+        if (x,y)==goal:
+            yield visited, path
+            return
+
         visited.add((x,y))
+        yield visited, None
+
         for dx,dy in [(1,0),(-1,0),(0,1),(0,-1)]:
             nx,ny=x+dx,y+dy
-            if maze[ny][nx]==0:
+
+            if maze[ny][nx]==0 and (nx,ny) not in visited:
                 stack.append(((nx,ny),path+[(nx,ny)]))
+
+import heapq
+
+def h(a,b):
+    return abs(a[0]-b[0])+abs(a[1]-b[1])
+
+def astar(maze,start,goal):
+    open_set=[]
+    heapq.heappush(open_set,(0,start))
+    came={}
+    g={start:0}
+
+    while open_set:
+        _,cur=heapq.heappop(open_set)
+        if cur==goal:
+            return reconstruct(came,cur)
+
+        x,y=cur
+        for dx,dy in [(1,0),(-1,0),(0,1),(0,-1)]:
+            nx,ny=x+dx,y+dy
+            if maze[ny][nx]==1: continue
+            nb=(nx,ny)
+            tg=g[cur]+1
+            if nb not in g or tg<g[nb]:
+                came[nb]=cur
+                g[nb]=tg
+                heapq.heappush(open_set,(tg+h(nb,goal),nb))
+
+def reconstruct(came,cur):
+    path=[cur]
+    while cur in came:
+        cur=came[cur]
+        path.append(cur)
+    return path[::-1]
+
 
 pygame.init()
 screen=pygame.display.set_mode((WIDTH,HEIGHT))
@@ -54,16 +98,26 @@ maze=generate_maze(W,H)
 
 start = (1,1)
 goal = (W-2, H-2)
-path = dfs(maze, start, goal)
+
+path_gen = dfs(maze, start, goal)
+visited = set()
+path = None
+
 
 clock=pygame.time.Clock()
 running=True
 
 while running:
-    clock.tick(60)
+    clock.tick(30)
     for e in pygame.event.get():
         if e.type==pygame.QUIT:
             running=False
+
+    if path is None:
+        try:
+            visited, path = next(path_gen)
+        except:
+            pass
 
     screen.fill(WHITE)
     for y in range(H):
@@ -76,6 +130,13 @@ while running:
                     border_radius=4
                 )
 
+    for (x,y) in visited:
+        pygame.draw.rect(
+            screen,
+            (180,180,180),
+            (x*CELL+4, y*CELL+4, CELL-8, CELL-8),
+            border_radius=4
+        )
     sx, sy = start
     pygame.draw.rect(
         screen,
@@ -83,7 +144,7 @@ while running:
         (sx*CELL+3, sy*CELL+3, CELL-6, CELL-6),
         border_radius=6
     )
-    
+
     gx, gy = goal
     pygame.draw.rect(
         screen,
@@ -91,13 +152,14 @@ while running:
         (gx*CELL+3, gy*CELL+3, CELL-6, CELL-6),
         border_radius=6
     )
-    for (x,y) in path:
-        pygame.draw.rect(
-            screen,
-            (60,120,255),
-            (x*CELL+5, y*CELL+5, CELL-10, CELL-10),
-            border_radius=6
-        )
+    if path:
+        for (x,y) in path:
+            pygame.draw.rect(
+                screen,
+                (60,120,255),
+                (x*CELL+5, y*CELL+5, CELL-10, CELL-10),
+                border_radius=6
+            )
     pygame.display.flip()
     
 
