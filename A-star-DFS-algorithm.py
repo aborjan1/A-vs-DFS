@@ -63,32 +63,68 @@ def generate_map(width, height, room_attempts=40, min_size=3, max_size=7):
     goal = rooms[-1]
     return grid, start, goal
 
+def generate_big_maze(w,h):
+    maze=[[1]*w for _ in range(h)]
+    stack=[(1,1)]
+    maze[1][1]=0
 
-def dfs(maze,start,goal):
-    stack=[(start,[start])]
-    visited=set()
     while stack:
+        x,y=stack[-1]
+        dirs=[(2,0),(-2,0),(0,2),(0,-2)]
+        random.shuffle(dirs)
+        carved=False
+        for dx,dy in dirs:
+            nx,ny=x+dx,y+dy
+            if 0<nx<w-1 and 0<ny<h-1 and maze[ny][nx]==1:
+                maze[y+dy//2][x+dx//2]=0
+                maze[ny][nx]=0
+                stack.append((nx,ny))
+                carved=True
+                break
+        if not carved:
+            stack.pop()
 
-        (x,y),path=stack.pop()
+    return maze, (1,1), (w-2,h-2)
 
-        
-        if (x,y) in visited:
+def generate_hybrid(w,h):
+    maze, s, g = generate_big_maze(w,h)
+    for _ in range((w*h)//15):
+        x=random.randint(1,w-3)
+        y=random.randint(1,h-3)
+        rw=random.randint(3,6)
+        rh=random.randint(3,6)
+        for yy in range(y,y+rh):
+            for xx in range(x,x+rw):
+                if 0<=xx<w and 0<=yy<h:
+                    maze[yy][xx]=0
+    return maze, s, g
+
+
+def dfs(maze, start, goal):
+    stack = [(start, [start])]
+    visited = set()
+    h = len(maze)
+    w = len(maze[0])
+
+    while stack:
+        (x, y), path = stack.pop()
+
+        if (x, y) in visited:
             continue
 
-        if (x,y)==goal:
+        visited.add((x, y))
+        yield visited, None
+
+        if (x, y) == goal:
             yield visited, path
             return
 
-        visited.add((x,y))
-        yield visited, None
+        for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                if maze[ny][nx] == 0 and (nx, ny) not in visited:
+                    stack.append(((nx, ny), path + [(nx, ny)]))
 
-        for dx,dy in [(1,0),(-1,0),(0,1),(0,-1)]:
-            nx,ny=x+dx,y+dy
-
-            if maze[ny][nx]==0 and (nx,ny) not in visited:
-                stack.append(((nx,ny),path+[(nx,ny)]))
-
-import heapq
 
 def h(a,b):
     return abs(a[0]-b[0])+abs(a[1]-b[1])
@@ -157,24 +193,51 @@ pygame.init()
 screen=pygame.display.set_mode((WIDTH,HEIGHT))
 clock=pygame.time.Clock()
 
+def reset_map():
+    global maze, start, goal, dfs_gen, astar_gen, dfs_v, dfs_p, astar_v, astar_p
+
+    if map_type == 1:
+        maze, start, goal = generate_map(W, H)
+    elif map_type == 2:
+        maze, start, goal = generate_big_maze(W, H)
+    else:
+        maze, start, goal = generate_hybrid(W, H)
+
+    dfs_gen = dfs(maze, start, goal)
+    astar_gen = astar(maze, start, goal)
+
+    dfs_v=set(); dfs_p=None
+    astar_v=set(); astar_p=None
+
+map_type = 1
 maze, start, goal = generate_map(W, H)
 
-path_gen = dfs(maze, start, goal)
-visited = set()
-path = None
 
-dfs_gen=dfs(maze,start,goal)
-astar_gen=astar(maze,start,goal)
-dfs_v=set(); dfs_p=None
-astar_v=set(); astar_p=None
-
+reset_map()
 running=True
 
 while running:
+
     clock.tick(30)
     for e in pygame.event.get():
-        if e.type==pygame.QUIT:
-            running=False
+        if e.type == pygame.QUIT:
+            running = False
+
+        if e.type==pygame.KEYDOWN:
+            if e.key == pygame.K_r and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                reset_map()
+
+            if e.key == pygame.K_1:
+                map_type = 1
+                reset_map()
+
+            if e.key == pygame.K_2:
+                map_type = 2
+                reset_map()
+
+            if e.key == pygame.K_3:
+                map_type = 3
+                reset_map()
 
     if dfs_p is None:
         try: dfs_v,dfs_p=next(dfs_gen)
