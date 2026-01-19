@@ -1,10 +1,14 @@
-import pygame, random
+import pygame, random # type: ignore
 
 CELL = 24
 W, H = 31, 21
 WIDTH, HEIGHT = W*CELL, H*CELL
 WHITE=(245,245,245)
 BLACK=(15,15,15)
+GREEN = (50,200,120) # Ulaz
+RED = (220,70,70) # Izlaz
+
+
 
 def generate_maze(w,h):
     maze=[[1]*w for _ in range(h)]
@@ -28,9 +32,30 @@ def generate_maze(w,h):
             stack.pop()
     return maze
 
+def dfs(maze,start,goal):
+    stack=[(start,[start])]
+    visited=set()
+    while stack:
+        (x,y),path=stack.pop()
+        if (x,y)==goal:
+            return path
+        if (x,y) in visited:
+            continue
+        visited.add((x,y))
+        for dx,dy in [(1,0),(-1,0),(0,1),(0,-1)]:
+            nx,ny=x+dx,y+dy
+            if maze[ny][nx]==0:
+                stack.append(((nx,ny),path+[(nx,ny)]))
+
 pygame.init()
 screen=pygame.display.set_mode((WIDTH,HEIGHT))
+
 maze=generate_maze(W,H)
+
+start = (1,1)
+goal = (W-2, H-2)
+path = dfs(maze, start, goal)
+
 clock=pygame.time.Clock()
 running=True
 
@@ -44,7 +69,37 @@ while running:
     for y in range(H):
         for x in range(W):
             if maze[y][x]==1:
-                pygame.draw.rect(screen,BLACK,(x*CELL,y*CELL,CELL,CELL),border_radius=4)
+                pygame.draw.rect(
+                    screen,
+                    BLACK,
+                    (x*CELL,y*CELL,CELL,CELL),
+                    border_radius=4
+                )
+
+    sx, sy = start
+    pygame.draw.rect(
+        screen,
+        GREEN,
+        (sx*CELL+3, sy*CELL+3, CELL-6, CELL-6),
+        border_radius=6
+    )
+    
+    gx, gy = goal
+    pygame.draw.rect(
+        screen,
+        RED,
+        (gx*CELL+3, gy*CELL+3, CELL-6, CELL-6),
+        border_radius=6
+    )
+    for (x,y) in path:
+        pygame.draw.rect(
+            screen,
+            (60,120,255),
+            (x*CELL+5, y*CELL+5, CELL-10, CELL-10),
+            border_radius=6
+        )
     pygame.display.flip()
+    
+
 
 pygame.quit()
